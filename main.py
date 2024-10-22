@@ -1,9 +1,6 @@
-from blessed.terminal import Terminal
+from Pong.Pong import Pong
 
-term = Terminal()
+p = Pong(120,25,1)
 
-for i in range(12):
-    print(term.move_xy(i,1) + term.red("XD"))
-
-
-    
+p.init_field()
+p.print_field()

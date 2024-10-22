@@ -1,5 +1,9 @@
+from queue import Queue
+
 from blessed.terminal import Terminal
 import time
+import threading
+import queue
 
 
 class Pong:
@@ -12,6 +16,7 @@ class Pong:
         self.__theme = theme
         self.__themes = (("red", "darkgreen", "darkblue", "black"), ("white", "black", "white", "darkgray"))
         self.__targetScore = 5
+        self.__input_buffer = Queue()
 
         #Game Entities
         self.__term = Terminal()
@@ -70,22 +75,22 @@ class Pong:
                     print()
 
     def move_ball(self):
-        nextY = self.__ball["y"] + self.__ball_direction[0]
-        nextX = [self.__ball["x"][0] + self.__ball_direction[1],self.__ball["x"][1] + self.__ball_direction[1]]
+        while not self.__gameOver:
+            time.sleep(0.15)
 
-        if self.check_collision(nextX,nextY):
-            if nextY == 0 or nextY == self.__height - 1:
-                self.invert_direction(0)
-            else:
-                self.invert_direction(1)
             nextY = self.__ball["y"] + self.__ball_direction[0]
-            nextX = [self.__ball["x"][0] + self.__ball_direction[1], self.__ball["x"][1] + self.__ball_direction[1]]
+            nextX = [self.__ball["x"][0] + self.__ball_direction[1],self.__ball["x"][1] + self.__ball_direction[1]]
 
-        self.__ball["y"] = nextY
-        self.__ball["x"] = nextX
+            if self.check_collision(nextX,nextY):
+                if nextY == 0 or nextY == self.__height - 1:
+                    self.invert_direction(0)
+                else:
+                    self.invert_direction(1)
+                nextY = self.__ball["y"] + self.__ball_direction[0]
+                nextX = [self.__ball["x"][0] + self.__ball_direction[1], self.__ball["x"][1] + self.__ball_direction[1]]
 
-
-
+            self.__ball["y"] = nextY
+            self.__ball["x"] = nextX
 
     def check_collision(self,x,y):
         if y == 0 or y == self.__height - 1:
@@ -108,20 +113,38 @@ class Pong:
     def reset_ball(self):
         self.__ball = {"y": self.half_y, "x": [self.half_x, self.half_x - 1]}
 
-    def listen_input(self,val):
-        if val.is_sequence:
-            if val.name == "KEY_UP" and self.is_valid(self.__player1["y"][0]):
-                 self.move_paddle(0,1)
-
-            elif val.name == "KEY_DOWN" and self.is_valid(self.__player1["y"][4]):
-                self.move_paddle(1, 1)
+    def listen_input(self):
+        while not self.__gameOver:
+            val = self.__term.inkey()
+            self.__input_buffer.put(val)
 
 
-        elif val.upper() == "W" and self.is_valid(self.__player2["y"][0]):
-            self.move_paddle(0, 2)
 
-        elif val.upper() == "S" and self.is_valid(self.__player2["y"][4]):
-            self.move_paddle(1, 2)
+    def player1_input_listener(self):
+        while not self.__gameOver:
+            try:
+                val = self.__input_buffer.get(block=False)
+
+                if val.upper() == "W" and self.is_valid(self.__player2["y"][0]):
+                    self.move_paddle(0, 2)
+
+                elif val.upper() == "S" and self.is_valid(self.__player2["y"][4]):
+                    self.move_paddle(1, 2)
+            except:
+                continue
+
+    def player2_input_listener(self):
+        while not self.__gameOver:
+            try:
+                val = self.__input_buffer.get(block=False)
+
+                if val.upper() == "O" and self.is_valid(self.__player1["y"][0]):
+                    self.move_paddle(0, 1)
+
+                elif val.upper() == "L" and self.is_valid(self.__player1["y"][4]):
+                    self.move_paddle(1, 1)
+            except:
+                continue
 
     def is_valid(self,y):
         return 1 < y < self.__height - 2
@@ -141,19 +164,25 @@ class Pong:
                     self.__player2["y"][i] += 1
 
     def play(self):
+
+        input_listener = threading.Thread(target=self.listen_input)
+        player1 = threading.Thread(target=self.player1_input_listener)
+        player2 = threading.Thread(target=self.player2_input_listener)
+        ball = threading.Thread(target=self.move_ball)
+
+        input_listener.start()
+        player1.start()
+        player2.start()
+        ball.start()
+
         with self.__term.cbreak(), self.__term.hidden_cursor():
             print(self.__term.home + self.__term.clear())
 
             while not self.__gameOver:
 
+
                 self.print_field()
 
-                val = self.__term.inkey(timeout=0.1)
-                time.sleep(0.25)
-
-                self.listen_input(val)
-
-                self.move_ball()
 
                 if 2 in self.__ball["x"]:
                     self.__player2_score += 1
@@ -174,6 +203,10 @@ class Pong:
                 if self.__player1_score == self.__targetScore or self.__player2_score == self.__targetScore:
                     self.__gameOver = True
                     print(self.__term.home + self.__term.clear())
+                    player1.join()
+                    player2.join()
+                    ball.join()
+                    input_listener.join()
 
 
 

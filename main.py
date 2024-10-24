@@ -1,9 +1,9 @@
-from Pong.Pong import Pong
+from pong.pong import Pong
 
 
 
 def main():
-    p = Pong(70, 20, 1,3)
+    p = Pong(80, 20, 1,3)
     p.play()
 
 

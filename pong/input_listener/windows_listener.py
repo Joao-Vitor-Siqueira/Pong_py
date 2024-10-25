@@ -1,5 +1,4 @@
 import keyboard
-import threading
 
 def get_opposite_key(key):
     if key == 'w':
@@ -13,38 +12,32 @@ def get_opposite_key(key):
 
 class WindowsListener:
     def __init__(self):
-        self.__input_buffer = []
-        self.__listener = threading.Thread(target=self.start)
-        self.__flag = False
+        self.__input_buffer = set()
 
-    def listen_key_press(self, key):
-        if key.name in ('w', 's', 'up', 'down'):
-            if key.name not in self.__input_buffer and get_opposite_key(key.name) not in self.__input_buffer:
-                self.__input_buffer.append(key.name)
+    def listen_key_event(self, event):
+        key = event.name
+        if event.event_type == 'down':
 
-    def listen_key_release(self, key):
-        if key.name in self.__input_buffer:
-            self.__input_buffer.remove(key.name)
+            if key in ('w', 's', 'up', 'down'):
+                if key not in self.__input_buffer and get_opposite_key(key) not in self.__input_buffer:
+                    self.__input_buffer.add(key)
+
+        elif event.event_type == 'up':
+            self.__input_buffer.discard(key)
 
     def empty(self):
         return len(self.__input_buffer) == 0
 
-    def find(self, val):
-        return val in self.__input_buffer
-
-    def listen(self):
-        while not self.__flag:
-            keyboard.on_press(self.listen_key_press)
-            keyboard.on_release(self.listen_key_release)
+    def find(self, key):
+        return key in self.__input_buffer
 
     def start(self):
-        self.__listener.start()
+        keyboard.hook(self.listen_key_event)
 
     def join(self):
-        self.__flag = True
-        self.__listener.join()
+        keyboard.unhook(self.listen_key_event)
 
-    
+
 
 
 

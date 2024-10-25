@@ -2,17 +2,8 @@ from blessed.terminal import Terminal
 import time
 import threading
 from pong.input_listener.input_listener_factory import InputListenerFactory
+import platform
 
-
-def get_opposite_key(key):
-    if key == "'W'":
-        return "'S'"
-    elif key == "'S'":
-        return  "'W'"
-    elif key == 'KEY.UP':
-        return 'KEY.DOWN'
-    else:
-        return 'KEY.UP'
 
 
 class Pong:
@@ -44,8 +35,9 @@ class Pong:
         self.__gameOver = False
         self.__player1_score = 0
         self.__player2_score = 0
+        self.__keys = ["'W'","'S'","KEY.UP","KEY.DOWN"] if platform.system() == 'Linux' else ['w','s','up','down']
 
-        self.__input_buffer = []
+
         self.__field_changes = []
 
 
@@ -157,16 +149,16 @@ class Pong:
 
             if not self.__input_listener.empty():
 
-                if self.__input_listener.find("'W'") and self.is_valid(self.__player2_pos["y"][0]):
+                if self.__input_listener.find(self.__keys[0]) and self.is_valid(self.__player2_pos["y"][0]):
                     self.move_paddle(0, 2)
 
-                if self.__input_listener.find("'S'")  and self.is_valid(self.__player2_pos["y"][-1]):
+                if self.__input_listener.find(self.__keys[1])  and self.is_valid(self.__player2_pos["y"][-1]):
                     self.move_paddle(1, 2)
 
-                if  self.__input_listener.find('KEY.UP') and self.is_valid(self.__player1_pos["y"][0]):
+                if  self.__input_listener.find(self.__keys[2]) and self.is_valid(self.__player1_pos["y"][0]):
                     self.move_paddle(0, 1)
 
-                if  self.__input_listener.find('KEY.DOWN') and self.is_valid(self.__player1_pos["y"][-1]):
+                if  self.__input_listener.find(self.__keys[3]) and self.is_valid(self.__player1_pos["y"][-1]):
                     self.move_paddle(1, 1)
 
 
@@ -203,49 +195,53 @@ class Pong:
             self.__player2_pos["y"] = new_pos
 
 
+    def game_loop(self):
+        (self.__term.home + self.__term.clear())
+        self.render_field()
+
+        while not self.__gameOver:
+            self.update_field()
+
+            if 2 in self.__ball_pos["x"]:
+                self.__player2_score += 1
+                time.sleep(1.5)
+                self.reset_ball()
+
+            elif self.__width - 3 in self.__ball_pos["x"]:
+                self.__player1_score += 1
+                time.sleep(1.5)
+                self.reset_ball()
+
+            self.print_in_color("white", self.__width + 10, self.half_y - 1, "Player 1: " + str(self.__player1_score))
+            self.print_in_color("white", self.__width + 10, self.half_y + 1, "Player 2: " + str(self.__player2_score))
+
+            if self.__player1_score == self.__targetScore or self.__player2_score == self.__targetScore:
+                self.__gameOver = True
+                print(self.__term.home + self.__term.clear())
+
+                self.__input_handler.join()
+                self.__ball.join()
+                self.__input_listener.join()
+
+                winner = "Player 1" if self.__player1_score > self.__player2_score else "Player 2"
+
+                self.print_in_color("white", 0, 0, f"{winner} wins!\n")
 
 
     def play(self):
+
+        self.__term.clear()
 
         self.__input_listener.start()
         self.__input_handler.start()
         self.__ball.start()
 
-        with self.__term.cbreak(), self.__term.hidden_cursor():
-
-            print(self.__term.home + self.__term.clear())
-            self.render_field()
-
-            while not self.__gameOver:
-                self.update_field()
-
-                if 2 in self.__ball_pos["x"]:
-                    self.__player2_score += 1
-                    time.sleep(1.5)
-                    self.reset_ball()
-
-                elif self.__width - 3 in self.__ball_pos["x"]:
-                    self.__player1_score += 1
-                    time.sleep(1.5)
-                    self.reset_ball()
-
-
-                self.print_in_color("white",self.__width + 10,self.half_y - 1,"Player 1: " + str(self.__player1_score))
-                self.print_in_color("white",self.__width + 10,self.half_y + 1,"Player 2: " + str(self.__player2_score))
-
-
-
-
-                if self.__player1_score == self.__targetScore or self.__player2_score == self.__targetScore:
-                    self.__gameOver = True
-                    print(self.__term.home + self.__term.clear())
-                    self.__input_handler.join()
-                    self.__ball.join()
-                    self.__input_listener.join()
-
-                    winner = "Player 1" if self.__player1_score > self.__player2_score else "Player 2"
-
-                    self.print_in_color("white",0,0,f"{winner} wins!\n")
+        if platform.system() == 'Windows':
+            with self.__term.hidden_cursor():
+                self.game_loop()
+        else:
+            with self.__term.hidden_cursor(),self.__term.cbreak():
+                self.game_loop()
 
 
 

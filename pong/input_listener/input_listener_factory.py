@@ -1,6 +1,10 @@
 import platform
-from pong.input_listener.linux_listener import LinuxListener
 from pong.input_listener.windows_listener import WindowsListener
+
+
+
+if platform.system() == 'Linux':
+    from pong.input_listener.linux_listener import LinuxListener
 
 class InputListenerFactory:
     def __init__(self):

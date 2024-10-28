@@ -14,8 +14,9 @@ class InputListenerFactory:
     def get_listener(self):
         if not self.listener:
             if self.os == 'Windows':
-                return WindowsListener()
+                self.listener = WindowsListener()
             else:
-                return LinuxListener()
+                self.listener = LinuxListener()
+            return self.listener
 
 
